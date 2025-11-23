@@ -2,9 +2,6 @@
 cat > README.md <<EOF
 # 🕵️‍♂️ AI Detective: Sahte Sosyal Medya Hesabı Tespit Yazılımı
 
-**Ders:** YMH221 - Nesne Tabanlı Programlama  
-**Dönem:** 2025-2026 Güz  
-
 ## 🚀 Proje Hakkında
 Bu proje, sosyal medya platformlarındaki (X, Instagram vb.) kullanıcı hesaplarını analiz ederek, hesabın **gerçek bir kişiye mi** yoksa bir **bota/fake hesaba mı** ait olduğunu tespit eden yapay zeka destekli bir yazılımdır.
 
