@@ -19,31 +19,51 @@ function AccountForm() {
     }
   };
 
-  const analyzeAccount = async (e) => {
+const analyzeAccount = async (e) => {
     e.preventDefault();
-    if (!username.trim()) {
-      setError('Lütfen bir kullanıcı adı girin');
-      return;
-    }
+    if (!username.trim()) return;
     
     setLoading(true);
     setResult(null);
-    setError('');
-    
-    // Simülasyon (Bekleme efekti)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const isFake = Math.random() > 0.5;
-    setResult({
-      isFake,
-      confidence: Math.floor(Math.random() * 30) + 70,
-      platform,
-      username,
-      reasons: isFake 
-        ? ['Takipçi/Takip edilen oranı dengesiz', 'Profil fotoğrafı stok görsel olabilir', 'Son 30 günde anormal aktivite', 'Paylaşımlarda spam içerik tespit edildi']
-        : ['Hesap doğrulanmış telefon numarasına sahip', 'Etkileşimler organik ve zamana yayılmış', 'Gerçek kişilerle karşılıklı takipleşme var', 'Profil bilgileri tutarlı']
-    });
-    setLoading(false);
+    setError(''); // Hata varsa temizle
+
+    try {
+      // 1. Backend'e İstek Gönder (Fetch API)
+      const response = await fetch('http://127.0.0.1:8000/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Gönderdiğimiz veri:
+        body: JSON.stringify({ 
+          username: username, 
+          platform: platform 
+        }),
+      });
+
+      // 2. Backend'den cevap başarılı mı kontrol et
+      if (!response.ok) {
+        throw new Error('Sunucu hatası oluştu!');
+      }
+
+      // 3. Gelen cevabı oku
+      const data = await response.json();
+
+      // 4. Sonucu ekrana bas
+      setResult({
+        isFake: data.isFake,
+        confidence: data.confidence,
+        platform: data.platform,
+        username: data.username,
+        reasons: data.reasons
+      });
+
+    } catch (err) {
+      console.error("Bağlantı hatası:", err);
+      setError('Sunucuyla bağlantı kurulamadı! Backend çalışıyor mu?');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // İkonlar (SVG Kodları) - Daha temiz ve optimize

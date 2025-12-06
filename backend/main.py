@@ -1,19 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import random
-import time
+import joblib
+import pandas as pd
+import numpy as np
+import os
 
-# Uygulamayı başlat
 app = FastAPI()
 
-# --- CORS AYARLARI (ÖNEMLİ) ---
-# Frontend (localhost:5173) Backend'e (localhost:8000) erişebilsin diye izin veriyoruz.
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
+# --- CORS ---
+origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -22,50 +18,85 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- VERİ TİPLERİ ---
-# Frontend'den bize ne gelecek? Sadece bunları kabul et.
+# --- MODEL YÜKLEME ---
+model_path = "social_media_fraud_model.pkl"
+model = None
+try:
+    if os.path.exists(model_path):
+        model = joblib.load(model_path)
+        print(f"✅ Model Yüklendi: {model_path}")
+    else:
+        print("⚠️ Model bulunamadı!")
+except Exception as e:
+    print(f"❌ Model Hatası: {e}")
+
 class AnalyzeRequest(BaseModel):
     username: str
     platform: str
 
-# --- API UÇLARI (ENDPOINTS) ---
-
-@app.get("/")
-def read_root():
-    return {"message": "AI Detective Backend Çalışıyor! 🕵️‍♂️"}
-
 @app.post("/analyze")
 async def analyze_account(request: AnalyzeRequest):
-    # 1. İsteği aldığımızı görelim
-    print(f"Gelen İstek -> Platform: {request.platform}, Kullanıcı: {request.username}")
+    print(f"\n📨 --- YENİ İSTEK: {request.username} ---")
 
-    # 2. Simülasyon (Yapay zeka düşünüyormuş gibi bekleme)
-    time.sleep(2) 
+    if not model:
+        return {"isFake": True, "confidence": 0, "reasons": ["Model Yok"]}
 
-    # 3. BURAYA İLERİDE GERÇEK AI MODELİ GELECEK
-    # Şimdilik rastgele sonuç üretelim (Frontend'deki mantığın aynısı)
-    is_fake = random.choice([True, False])
-    confidence = random.randint(70, 99)
+    try:
+        # SİMÜLASYON AYARLARI (Modelin farkı anlaması için uç değerler veriyoruz)
+        
+        # KURAL: Kullanıcı adında 'bot', 'fake' veya 'test' varsa BOT verisi üret
+        is_simulated_bot = any(keyword in request.username.lower() for keyword in ["bot", "fake", "test"])
 
-    fake_reasons = [
-        "Takipçi/Takip edilen oranı dengesiz", 
-        "Profil fotoğrafı stok görsel olabilir", 
-        "Son 30 günde anormal aktivite", 
-        "Paylaşımlarda spam içerik tespit edildi"
-    ]
-    
-    real_reasons = [
-        "Hesap doğrulanmış telefon numarasına sahip", 
-        "Etkileşimler organik ve zamana yayılmış", 
-        "Gerçek kişilerle karşılıklı takipleşme var", 
-        "Profil bilgileri tutarlı"
-    ]
+        if is_simulated_bot:
+            print("🤖 Simülasyon: BOT profili verisi hazırlanıyor...")
+            features = {
+                'followers': 5,           # Çok az takipçi
+                'verified': 0,            # Onaysız
+                'retweet_count': 10000,   # Aşırı Retweet (Spam sinyali)
+                'mention_count': 0        # Kimseyle konuşmuyor
+            }
+        else:
+            print("bust👤 Simülasyon: İNSAN profili verisi hazırlanıyor...")
+            features = {
+                'followers': 50000,       # Bayağı takipçi (Güven versin)
+                'verified': 1,            # Onaylı hesap
+                'retweet_count': 5,       # Az retweet
+                'mention_count': 200      # Çok etkileşim/sohbet
+            }
 
-    # 4. Sonucu Frontend'e geri gönder
-    return {
-        "username": request.username,
-        "platform": request.platform,
-        "isFake": is_fake,
-        "confidence": confidence,
-        "reasons": fake_reasons if is_fake else real_reasons
-    }
+        # DataFrame oluştur (Sütun sırası modele girenle AYNI olmalı)
+        # Sütunlar: ['followers', 'verified', 'retweet_count', 'mention_count']
+        input_df = pd.DataFrame([features], columns=['followers', 'verified', 'retweet_count', 'mention_count'])
+        
+        # TERMİNALE BAS (Gözümüzle görelim ne giriyor)
+        print(f"🔍 Modele Giren Veri:\n{input_df.to_string(index=False)}")
+
+        # Tahmin
+        prediction = model.predict(input_df)[0]
+        proba = model.predict_proba(input_df)[0]
+        
+        # Bot olma ihtimali (Sınıf 1)
+        fake_probability = proba[1] 
+        
+        is_fake = bool(prediction == 1)
+        confidence = int(fake_probability * 100) if is_fake else int(proba[0] * 100)
+
+        print(f"🎯 Sonuç: {'FAKE' if is_fake else 'REAL'} (Güven: %{confidence})")
+
+        # Sebepler
+        if is_fake:
+            reasons = ["Profil etkileşimleri yapay duruyor", "Takipçi/Aktivite oranı dengesiz", "Yüksek spam riski"]
+        else:
+            reasons = ["Hesap doğrulanmış ve güvenilir", "Organik etkileşim akışı", "Güçlü takipçi kitlesi"]
+
+        return {
+            "username": request.username,
+            "platform": request.platform,
+            "isFake": is_fake,
+            "confidence": confidence,
+            "reasons": reasons
+        }
+
+    except Exception as e:
+        print(f"🔥 HATA: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
