@@ -1,11 +1,22 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import gc
 import joblib
 import pandas as pd
 import numpy as np
 import os
 
+model_path = "social_media_fraud_model.pkl"
+model = None
+if os.path.exists(model_path):
+    model = joblib.load(model_path)
+    print("✅ Model Yüklendi ve Hazır!")
+    # RAM TEMİZLİĞİ: Model yüklendikten sonra boşa çıkan geçici hafızayı temizle
+    gc.collect() 
+else:
+    print("❌ Model Yok!")
+    
 app = FastAPI()
 
 # --- CORS ---
@@ -58,7 +69,7 @@ async def analyze_account(request: AnalyzeRequest):
         else:
             print("bust👤 Simülasyon: İNSAN profili verisi hazırlanıyor...")
             features = {
-                'followers': 50000,       # Bayağı takipçi (Güven versin)
+                'followers': 500,       # Bayağı takipçi (Güven versin)
                 'verified': 1,            # Onaylı hesap
                 'retweet_count': 5,       # Az retweet
                 'mention_count': 200      # Çok etkileşim/sohbet
