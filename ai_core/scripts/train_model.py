@@ -75,7 +75,7 @@ print(f"🎉 Model Başarısı: %{acc * 100:.2f}")
 # 5. KAYDET
 save_path = os.path.join(current_dir, '../models/social_media_fraud_model.pkl')
 os.makedirs(os.path.dirname(save_path), exist_ok=True)
-joblib.dump(model, save_path)
+joblib.dump(model, save_path, compress=3)
 
 print(f"💾 Model kaydedildi: {save_path}")
 print("👉 Lütfen oluşan .pkl dosyasını 'backend/' klasörüne kopyala!")
