@@ -29,7 +29,7 @@ const analyzeAccount = async (e) => {
 
     try {
       // 1. Backend'e İstek Gönder (Fetch API)
-      const response = await fetch('https://ai-detective-backend.onrender.com', {
+      const response = await fetch('https://ai-detective-backend.onrender.com/analyze', { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
